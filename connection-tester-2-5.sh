@@ -97,15 +97,15 @@ validate_vars(){
                 local ip="$2"
                 { [[ "$ip" =~ ^([0-9]{1,3}.){3}[0-9]{1,3}$ ]] && return 0 ; } || return 1
                 ;;
-            "subnet_cidr"
+            "subnet_cidr")
                 local subnet_cidr="$2"
                 
                 { { [[ "$subnet_cidr" =~ ^[0-9]{2} ]] && [[ "$subnet_cidr" -ge 16 ]] && [[ "$subnet_cidr" -le 32 ]] ; } && return 0 ; } || return 1
                 ;;
-            "$port")
+            "port")
                 local port_start="$2"
                 local port_end="$3"
-                { { [[ "$port_start" =~ ^[0-9]{1,5}$ ]] && [[ "$port_end" =~ ^[0-9]{1,5}$ ]] && [[ "$port_start" -ge 1 ]] 2>/dev/null && [[ "$port_end" -le 65535 ]] 2>/dev/null && [[ "$port_start" -le "$port_end" ]] 2>/dev/null ; } return 0 ; } || return 1
+                { { [[ "$port_start" =~ ^[0-9]{1,5}$ ]] && [[ "$port_end" =~ ^[0-9]{1,5}$ ]] && [[ "$port_start" -ge 1 ]] 2>/dev/null && [[ "$port_end" -le 65535 ]] 2>/dev/null && [[ "$port_start" -le "$port_end" ]] 2>/dev/null ; } && return 0 ; } || return 1
                 ;;
             esac
 }
@@ -113,28 +113,26 @@ validate_vars(){
 get_start_end_ip(){
     #Converts starting ip and cidr to binary then adds them together to get ending ip
     local cidr_bit cidr_to_binary
+    
     cidr_bit=$(( 2**( 32 - "$subnet_cidr" ) ))
     cidr_to_binary=$( bc <<< "obase=2; $cidr_bit" ) #Here we convert the given cidr (E.g 24) into binary (E.g 100000000)
-    starting_ip_binary_32=$( printf "%032d\n" "cidr_to_binary" ) #Then make sure it is in a 32 bit format
-    
+    starting_ip_binary_32=$( printf "%032d\n" "$cidr_to_binary" ) #Then make sure it is in a 32 bit format
     
     while IFS='.' read -r oct_1 oct_2 oct_3 oct_4 ; do
         for num in {1..4} ; do #Loop through all 4 octets and convert them to binary
             declare -n octet=oct_$num
             declare "starting_octet_$num"="$octet"
             octet=$( bc <<< "obase=2; $octet" )
-            starting_ip_binary+=(printf "%08d\n" "$octet")
+            starting_ip_binary+=$(printf "%08d\n" "$octet")
         done
-    done <<< "network_id"
-    
+    done <<< "$network_id"
     ending_ip_binary=$( printf "%032s\n" "$( bc <<< "obase=2; $(( 2#$starting_ip_binary + 2#$starting_ip_binary_32 -1 ))" )" | tr ' ' '0') #Then we calculate the ending ip binary by adding the starting ip with the amount of ips the cidr calls from
     
     for p in {0..3} ; do
-        declare ending_octet_$(( p + 1 ))=$(( 2#${ending_ip_binary}:$(( p * 8 )):8 ))
+        declare ending_octet_$(( p + 1 ))=$(( 2#${ending_ip_binary:$(( p * 8 )):8} ))
     done
     
-    
-    readarray -t octets < <(echo -e "$starting_octet_1"\n"$starting_octet_2"\n"$starting_octet_3"\n"$starting_octet_4"\n"$ending_octet_1"\n"$ending_octet_2"\n"$ending_octet_3"\n"$ending_octet_4")
+    readarray -t octets < <(echo -e "$starting_octet_1\n$starting_octet_2\n$starting_octet_3\n$starting_octet_4\n$ending_octet_1\n$ending_octet_2\n$ending_octet_3\n$ending_octet_4")
     #Ugly solution, but it works. Echo all the octets into an array to return it via the lastpipe shell option
 }
 
@@ -150,7 +148,7 @@ convert_cidr(){
     #checks if CIDR was explicitly set via a flag. If not prompt user to set one
     [[ -z "$subnet_cidr" ]] && read -rp "Subnet Mask (I.e /24): " subnet_cidr
     #Remove any leading forward slash (/24 vs 24)
-    subnet_cidr="${subnet_cidr##/*}"
+    subnet_cidr="${subnet_cidr##*/}"
     #Then validate it
     validate_vars "subnet_cidr" "$subnet_cidr" || raise_error 1101 "Subnet CIDR"
     
@@ -188,18 +186,11 @@ main(){
         
     fi
     
-    console_logger "${error_levels[info]}" "Looking for old connection logs and preserving them"
-    for f in ./connectionLog* ; do
-        [[ $f == ./connectionLog_* ]] && break
-        new_filename=old_${f:2}_$(openssl rand -hex 4)
-        mv "$f" "$new_filename"
-    done
-    
     [[ -z $port ]] && read -rp "Port: " port
     console_logger "${error_levels[info]}" "Validating Port(s)"
     
     IFS=','
-    for portLoop in $port ; done
+    for portLoop in $port ; do
         local port_start port_end
         
         IFS=- read -r port_start port_end <<< "$portLoop" && port_end=${port_end:-$port_start}
@@ -207,6 +198,7 @@ main(){
         
         IFS=$ORIGINAL_IFS
         for port2scan in $(seq "$port_start" "$port_end") ; do
+            [[ -f connectionLog_${port2scan} ]] && { f="connectionLog_${port2scan}" ; console_logger "${error_levels[info]}" "Archiving old scan \"$f\"" ; new_filename=old_${f}_$(openssl rand -hex 4) ; mv "$f" "$new_filename" ; }
             console_logger "${error_levels[info]}" "Scanning port $port2scan"
             loopThroughIps 1
         done
@@ -228,7 +220,7 @@ loopThroughIps(){
     local starting_octet="${starting_ip[$(( i - 1 ))]}"
     local ending_octet="${ending_ip[$(( i - 1 ))]}"
     IFS=$ORIGINAL_IFS
-    for oct in $(seq "$starting_ip" "$ending_ip") ; do
+    for oct in $(seq "$starting_octet" "$ending_octet") ; do
         if [[ ! $i -eq 4 ]] ; then
             loopThroughIps $(( i + 1 )) "${@:2}" "$oct"
         else
