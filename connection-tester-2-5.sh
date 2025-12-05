@@ -55,7 +55,7 @@ console_logger(){
     local white="\e[40;0;37m"
     local clear="\e[0m"
     local prefix=""
-    local error_level=${desired_error_level:-}
+    local error_level=${desired_error_level:-$DEFAUT_GLOBAL_ERROR_LEVEL}
     local message_level=$1
     local message=$2
     
@@ -75,7 +75,7 @@ raise_error(){
     local error_code="$1"
     case "$error_level" in
         1101)
-            local_var_name=$2
+            local var_name=$2
             console_logger "${error_levels[error]}" "$error_code : Variable \"$var_name\" has an invalid value."
             exit 1
             ;;
@@ -118,6 +118,7 @@ get_start_end_ip(){
     cidr_to_binary=$( bc <<< "obase=2; $cidr_bit" ) #Here we convert the given cidr (E.g 24) into binary (E.g 100000000)
     starting_ip_binary_32=$( printf "%032d\n" "$cidr_to_binary" ) #Then make sure it is in a 32 bit format
     
+    # shellcheck disable=SC2034
     while IFS='.' read -r oct_1 oct_2 oct_3 oct_4 ; do
         for num in {1..4} ; do #Loop through all 4 octets and convert them to binary
             declare -n octet=oct_$num
@@ -132,6 +133,7 @@ get_start_end_ip(){
         declare ending_octet_$(( p + 1 ))=$(( 2#${ending_ip_binary:$(( p * 8 )):8} ))
     done
     
+    # shellcheck disable=SC2154
     readarray -t octets < <(echo -e "$starting_octet_1\n$starting_octet_2\n$starting_octet_3\n$starting_octet_4\n$ending_octet_1\n$ending_octet_2\n$ending_octet_3\n$ending_octet_4")
     #Ugly solution, but it works. Echo all the octets into an array to return it via the lastpipe shell option
 }
@@ -170,8 +172,10 @@ main(){
     else
     
     
+        # shellcheck disable=SC2128
         validate_vars "ip" "$starting_ip" || raise_error 1101 "starting_ip"
     
+        # shellcheck disable=SC2128
         validate_vars "ip" "$ending_ip" || raise_error 1101 "ending_ip"
     
     
@@ -179,6 +183,7 @@ main(){
     
     
         for ip in "starting_ip" "ending_ip" ; do #The most convuluted for loop ever. 0/10 readability :(
+            # shellcheck disable=SC2034
             while IFS=. read -r oct1 oct2 oct3 oct4 ; do
                 eval "$ip=( \"oct1\" \"oct2\" \"oct3\" \"oct4\" )"
             done <<< "${!ip}"
@@ -230,6 +235,7 @@ loopThroughIps(){
             {
                 trap 'echo "$ip - [TIMEOUT] No connection made" >> connectionLog_${port2scan} ; exit 0' SIGUSR1
                 
+                # shellcheck disable=SC2217
                 echo -n 2>/dev/null < "/dev/${protocol:-tcp}/${ip}/${port2scan}" && echo "$ip - [SUCCESS] Handshake made" >> "connectionLog_${port2scan}" || echo "$ip - [FAILURE] Handshake failed" >> "connectionLog_${port2scan}"
                 console_logger "${error_levels[debug]}" "Ip finished: $ip"
             } &
@@ -246,6 +252,7 @@ args=$(2</dev/null getopt -a -o hp:s:n:t:v: --long starting_ip:,ending_ip:,port:
 eval set -- "${args}"
 while :
 do
+    # shellcheck disable=SC2178
     case $1 in
         --starting_ip)      starting_ip=$2; shift 2 ;;
         --ending_ip)        ending_ip=$2; shift 2 ;;
