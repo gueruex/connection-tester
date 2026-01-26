@@ -1,13 +1,9 @@
 #!/usr/bin/env bash
 
-method=""
-starting_ip=""
-ending_ip=""
-network_id=""
-scan_port=""
-subnet_cidr=""
+MAX_FORKS=$(( $(ulimit -n) / 2 ))
+[[ $MAX_FORKS -gt 1024 ]] && MAX_FORKS=1024
 
-#Implement old features. Arg validation, Preserve old output files
+#Implement old features. Arg validation
 check_args()
 {
         if [ -n "$starting_ip" -a -n "$ending_ip" ] ; then
@@ -28,6 +24,7 @@ ip_to_int()
         local ip=$1
         local IFS=.
         local hex_ip=""
+
         for octet in $ip ; do hex_ip=${hex_ip}$(printf "%02x" "$octet") ; done
         printf "%d" "0x$hex_ip"
 }
@@ -52,8 +49,9 @@ build_ip_list_range()
         for (( i=int_start; i<=int_end; i++)); do printf "%08x\n" "$i" ; done | run_scan 
 }
 
-run_scan(){
-        xargs -I {} -P 256 bash -c '
+run_scan()
+{
+        xargs -I {} -P $MAX_FORKS bash -c '
                 ip_hex="{}"
                 ip="$(( (16#$ip_hex >> 24) & 0xff )).$(( (16#$ip_hex >> 16) & 0xff )).$(( (16#$ip_hex >> 8) & 0xff )).$(( 16#$ip_hex & 0xff ))"
                 timeout 1 bash -c "echo -n 2>/dev/null < /dev/tcp/${ip}/${scan_port} && echo $ip - [SUCCESS] Handshake made || echo $ip - [FAILURE] Handshake failed"
@@ -61,18 +59,24 @@ run_scan(){
         '
 }
 
-
 main()
-{       export scan_port
+{
+        LOG_FILE="conn_log_${scan_port}_$(date +'%m-%d-%y_%H:%M:%S')"
+        export scan_port
         check_args
 
         [ -z "$method" ] && { printf "Method to build IP List could not be determined. Exiting." ; exit 1 ; }
+
+        #TMP_FILE=TMPFILE=$(mktemp /dev/shm/conn_test.XXXXXX/results)
 
         if [[ "cidr" == "$method" ]] ; then 
                 build_ip_list_cidr
         elif [[ "range" == "$method" ]] ; then
                 build_ip_list_range
-        fi | sort -V -t "." -k3,3n -k4,4n
+        fi | tee "$LOG_FILE"
+
+        sort -V -t "." -k3,3n -k4,4n $LOG_FILE
+
         
 }
 
