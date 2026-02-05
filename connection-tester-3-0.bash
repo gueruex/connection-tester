@@ -75,7 +75,7 @@ main()
                 build_ip_list_range
         fi | tee "$LOG_FILE"
 
-        printf "$(sort -V -t "." -k3,3n -k4,4n "$LOG_FILE")" > "$LOG_FILE"
+        printf "%s" "$(sort -V -t "." -k3,3n -k4,4n "$LOG_FILE")" > "$LOG_FILE"
 }
 
 
