@@ -85,8 +85,8 @@ eval set -- "${args}"
 while :
 do
         case $1 in
-                     --starting-ip) starting_ip=$2; shift 2 ;;  # Not implemented yet
-                       --ending-ip) ending_ip=$2; shift 2 ;;    # Not implemented yet
+                     --starting-ip) starting_ip=$2; shift 2 ;;
+                       --ending-ip) ending_ip=$2; shift 2 ;;
                 -n |  --network-id) network_id=$2; shift 2 ;;
                 -p |        --port) scan_port=$2; shift 2 ;;
                 -s | --subnet_cidr) subnet_cidr=$2; shift 2 ;;
