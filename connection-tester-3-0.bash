@@ -3,7 +3,7 @@
 MAX_FORKS=$(( $(ulimit -n) / 2 ))
 [[ $MAX_FORKS -gt 1024 ]] && MAX_FORKS=1024
 
-#Implement old features. Arg validation, Port ranges/lists
+#Implement old features. Port ranges/lists
 check_args()
 {
         if [ -n "$starting_ip" ] && [ -n "$ending_ip" ] ; then
@@ -66,8 +66,6 @@ main()
         LOG_FILE="conn_log_${scan_port}_$(date +'%m-%d-%y_%H:%M:%S')"
 
         [ -z "$method" ] && { printf "Method to build IP List could not be determined. Exiting." ; exit 1 ; }
-
-        #TMP_FILE=TMPFILE=$(mktemp /dev/shm/conn_test.XXXXXX/results)
 
         if [[ "cidr" == "$method" ]] ; then 
                 build_ip_list_cidr 
