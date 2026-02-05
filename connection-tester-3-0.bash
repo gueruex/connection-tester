@@ -76,8 +76,6 @@ main()
         printf "%s" "$(sort -V -t "." -k3,3n -k4,4n "$LOG_FILE")" > "$LOG_FILE"
 }
 
-
-
 args=$(2</dev/null getopt -a -o n:p:s: --long starting-ip:,ending-ip:,network-id:,port:,subnet_cidr:,version -- "$@") || {
         echo "An unsupported option was entered."
         exit 1
