@@ -6,9 +6,9 @@ MAX_FORKS=$(( $(ulimit -n) / 2 ))
 #Implement old features. Arg validation, Port ranges/lists
 check_args()
 {
-        if [ -n "$starting_ip" -a -n "$ending_ip" ] ; then
+        if [ -n "$starting_ip" ] && [ -n "$ending_ip" ] ; then
                 method="range"
-        elif [ -n "$network_id" -a -n "$subnet_cidr" ] ; then
+        elif [ -n "$network_id" ] && [ -n "$subnet_cidr" ] ; then
                 method="cidr"
         else
                 [ -z "$netword_id" ] && read -rp "Please enter a Network ID: " network_id
